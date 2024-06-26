@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"srun-demo/floger"
-	"srun-demo/slzx"
+	"github.com/dot-xiaoyuan/srun-demo/floger"
+	"github.com/dot-xiaoyuan/srun-demo/slzx"
 	"time"
 )
 
