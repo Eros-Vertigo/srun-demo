@@ -2,7 +2,9 @@ package slzx
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,9 +23,45 @@ var (
 	TransferItem  = "T10100000000383"                  // 转账项目编号
 	Md5Key        = "qknalbp3dpq95akriibk8xomk1zlhi16" // md5签名串
 	PlatId        = "55555_md5"                        // 测试平台编号
-	NotifyUrl     = "http://113.132.178.96:8899"
+	NotifyUrl     = "http://113.132.179.77:8899"
 	Key           = "yczBqtTa"
 )
+
+type RespData struct {
+	Payfee       string `json:"payfee"`
+	TransferList []struct {
+		TransferItem string `json:"transferItem"`
+	} `json:"transferList"`
+	Merchantorderid string `json:"merchantorderid"`
+	Returnmsg       string `json:"returnmsg"`
+	Reserved        string `json:"reserved"`
+	Postscript      string `json:"postscript"`
+	Returncode      string `json:"returncode"`
+	Orderfee        string `json:"orderfee"`
+	Channelserialno string `json:"channelserialno"`
+	Status          string `json:"status"`
+}
+
+type QueryResponse struct {
+	TransDate      string   `json:"trans_date"`
+	CreateTime     string   `json:"create_time"`
+	AccountDate    string   `json:"account_date"`
+	DiscountAmount float64  `json:"discount_amount"`
+	ReturnCode     string   `json:"returncode"`
+	ReturnType     string   `json:"returntype"`
+	Sign           string   `json:"sign"`
+	RespData       string   `json:"respdata"`
+	DealAmount     float64  `json:"deal_amount"`
+	OverAmount     float64  `json:"over_amount"`
+	SlbusiId       string   `json:"slbusiid"`
+	ReturnMsg      string   `json:"returnmsg"`
+	PresetId       string   `json:"preset_id"`
+	OrderAmount    float64  `json:"order_amount"`
+	Paid           string   `json:"paid"`
+	ResponseTime   string   `json:"responsetime"`
+	ReceiveAmount  float64  `json:"receive_amount"`
+	ResData        RespData `json:"resdata"`
+}
 
 type PayModel struct {
 	Username    string `json:"phone" form:"phone"`
@@ -151,9 +189,9 @@ func (p *Pay) NativePayRequest() (res PayResponse, err error) {
 	return res, nil
 }
 
-func (p *Pay) OrderQuery() (res PayResponse, err error) {
+func (p *Pay) OrderQuery() (res QueryResponse, err error) {
 	// 接口地址
-	nativePayRequestUrl := fmt.Sprintf("%s%s", ServiceUrl, "sltf-outside/inter/pmManagerOrderQuery")
+	nativePayRequestUrl := fmt.Sprintf("%s%s", ServiceUrl, "sltf-outside/inter/pmManageOrderQuery")
 
 	reqData := map[string]interface{}{
 		"txtype":             "03",
@@ -182,7 +220,7 @@ func (p *Pay) OrderQuery() (res PayResponse, err error) {
 		"version":         "V1.0",
 		"charset":         "1",
 		"platid":          PlatId,
-		"produid":         "PM2000",
+		"produid":         "PM4000",
 		"channelserialno": p.Model.OutTradeNo,
 		"channeltime":     time.Now().Format("20060102150405"),
 		"reqdata":         reqDataDes,
@@ -194,7 +232,7 @@ func (p *Pay) OrderQuery() (res PayResponse, err error) {
 	floger.Debug5("发送数据 sendJson:", string(sendJson))
 	resp, err := doRequest(nativePayRequestUrl, http.MethodPost, sendJson)
 	if err != nil {
-		floger.Error("Failed to request slzx, err:", err)
+		floger.Error("Failed to request pmManagerOrderQuery, err:", err)
 		return res, err
 	}
 	defer resp.Body.Close()
@@ -208,9 +246,16 @@ func (p *Pay) OrderQuery() (res PayResponse, err error) {
 	if res.ReturnCode != "0000" {
 		return res, errors.New(res.ReturnMsg)
 	}
-	res.Data, _ = DecryptDES(Key, res.RespData)
-
+	res.RespData, _ = DecryptDES(Key, res.RespData)
+	if err = json.Unmarshal([]byte(res.RespData), &res.ResData); err != nil {
+		floger.Error("Failed to json_decode response:", err)
+		return res, err
+	}
 	return res, nil
+}
+
+func Notify() {
+
 }
 
 // 发送请求
@@ -238,6 +283,21 @@ func doRequest(uri, method string, data interface{}) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(resp.Status)
+	}
 	return resp, nil
+}
+
+func GenerateChannelSerialNumber() string {
+	// Generate 16 random bytes
+	randomBytes := make([]byte, 16)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return ""
+	}
+
+	// Encode bytes to hexadecimal string
+	randomString := hex.EncodeToString(randomBytes)
+	return randomString
 }
