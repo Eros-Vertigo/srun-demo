@@ -151,6 +151,68 @@ func (p *Pay) NativePayRequest() (res PayResponse, err error) {
 	return res, nil
 }
 
+func (p *Pay) OrderQuery() (res PayResponse, err error) {
+	// 接口地址
+	nativePayRequestUrl := fmt.Sprintf("%s%s", ServiceUrl, "sltf-outside/inter/pmManagerOrderQuery")
+
+	reqData := map[string]interface{}{
+		"txtype":             "03",
+		"oldproduid":         "PM2000",
+		"oldchannelserialno": p.Model.OutTradeNo,
+		"oldmerchantorderid": p.Model.OutTradeNo,
+	}
+
+	reqDataJson, _ := json.Marshal(reqData)
+
+	floger.Debug5("des 加密前的数据reqDataJson:", string(reqDataJson))
+
+	reqDataDes, _ := EncryptDES(Key, string(reqDataJson))
+
+	floger.Debug5("des 加密后的数据reqDataDes:", reqDataDes)
+
+	signContent := reqDataDes + "&key=" + Md5Key
+
+	floger.Debug5("md5 签名前 signContent:", signContent)
+
+	signMsg := strings.ToLower(helper.Md5(signContent))
+
+	floger.Debug5("md5 签名后 signMsg:", signMsg)
+
+	headMap := map[string]interface{}{
+		"version":         "V1.0",
+		"charset":         "1",
+		"platid":          PlatId,
+		"produid":         "PM2000",
+		"channelserialno": p.Model.OutTradeNo,
+		"channeltime":     time.Now().Format("20060102150405"),
+		"reqdata":         reqDataDes,
+		"sign":            signMsg,
+	}
+
+	sendJson, _ := json.Marshal(headMap)
+
+	floger.Debug5("发送数据 sendJson:", string(sendJson))
+	resp, err := doRequest(nativePayRequestUrl, http.MethodPost, sendJson)
+	if err != nil {
+		floger.Error("Failed to request slzx, err:", err)
+		return res, err
+	}
+	defer resp.Body.Close()
+
+	if err = json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		floger.Error("Failed to json_decode response:", err)
+		return res, err
+	}
+	floger.Debug5("返回结果 resultStr:", res)
+	// 解密
+	if res.ReturnCode != "0000" {
+		return res, errors.New(res.ReturnMsg)
+	}
+	res.Data, _ = DecryptDES(Key, res.RespData)
+
+	return res, nil
+}
+
 // 发送请求
 func doRequest(uri, method string, data interface{}) (*http.Response, error) {
 	client := &http.Client{
