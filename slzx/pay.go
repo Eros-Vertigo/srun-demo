@@ -88,14 +88,22 @@ type Pay struct {
 }
 
 type PayResponse struct {
-	ReturnCode     string `json:"returncode"`
-	ReturnMsg      string `json:"returnmsg"`
-	ReturnType     string `json:"returntype"`
-	SLIBusIId      string `json:"slibusiid"`
-	ResponstreTime string `json:"responstretime"`
-	RespData       string `json:"respdata"`
-	Data           string `json:"data"`
-	Sign           string `json:"sign"`
+	ReturnCode   string `json:"returncode"`
+	ReturnMsg    string `json:"returnmsg"`
+	ReturnType   string `json:"returntype"`
+	SLIBusIId    string `json:"slibusiid"`
+	ResponseTime string `json:"responstretime"`
+	RespData     string `json:"respdata"`
+	Data         string `json:"data"`
+	Sign         string `json:"sign"`
+	ResData      Data   `json:"resdata"`
+}
+
+type Data struct {
+	CodeUrl     string `json:"code_url"`
+	Status      string `json:"status"`
+	CodeType    string `json:"code_type"`
+	PathOrderId string `json:"pathorderid"`
 }
 
 func (p *Pay) UnifiedOrder() (res interface{}, err error) {
@@ -111,7 +119,7 @@ func (p *Pay) UnifiedOrder() (res interface{}, err error) {
 }
 
 // NativePayRequest 扫码支付
-func (p *Pay) NativePayRequest() (res PayResponse, err error) {
+func (p *Pay) NativePayRequest() (data Data, err error) {
 	// 接口地址
 	nativePayRequestUrl := fmt.Sprintf("%s%s", ServiceUrl, "sltf-outside/inter/nativePayRequest")
 	// code type
@@ -172,22 +180,23 @@ func (p *Pay) NativePayRequest() (res PayResponse, err error) {
 	resp, err := doRequest(nativePayRequestUrl, http.MethodPost, sendJson)
 	if err != nil {
 		floger.Error("Failed to request slzx, err:", err)
-		return res, err
+		return data, err
 	}
 	defer resp.Body.Close()
 
+	var res PayResponse
 	if err = json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		floger.Error("Failed to json_decode response:", err)
-		return res, err
+		return data, err
 	}
 	floger.Debug5("返回结果 resultStr:", res)
 	// 解密
 	if res.ReturnCode != "0000" {
-		return res, errors.New(res.ReturnMsg)
+		return data, errors.New(res.ReturnMsg)
 	}
 	res.Data, _ = DecryptDES(Key, res.RespData)
-
-	return res, nil
+	json.Unmarshal([]byte(res.Data), &res.ResData)
+	return res.ResData, nil
 }
 
 func (p *Pay) OrderQuery() (res QueryResponse, err error) {
@@ -255,8 +264,10 @@ func (p *Pay) OrderQuery() (res QueryResponse, err error) {
 	return res, nil
 }
 
-func Notify() {
-
+func verifySignByPublicKey(sign, plainText string) bool {
+	respData := strings.ReplaceAll(plainText, " ", "+")
+	signContent := respData + "&key=" + Md5Key
+	return sign == strings.ToLower(helper.Md5(signContent))
 }
 
 // 发送请求
