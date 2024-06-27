@@ -23,22 +23,22 @@ var (
 	TransferItem  = "T10100000000383"                  // 转账项目编号
 	Md5Key        = "qknalbp3dpq95akriibk8xomk1zlhi16" // md5签名串
 	PlatId        = "55555_md5"                        // 测试平台编号
-	NotifyUrl     = "http://113.132.179.77:8899"
+	NotifyUrl     = "https://yuantong.pro"
 	Key           = "yczBqtTa"
 )
 
 type RespData struct {
-	Payfee       string `json:"payfee"`
+	PayFee       string `json:"payfee"`
 	TransferList []struct {
 		TransferItem string `json:"transferItem"`
 	} `json:"transferList"`
-	Merchantorderid string `json:"merchantorderid"`
-	Returnmsg       string `json:"returnmsg"`
+	MerChantOrderId string `json:"merchantorderid"`
+	ReturnMsg       string `json:"returnmsg"`
 	Reserved        string `json:"reserved"`
 	Postscript      string `json:"postscript"`
-	Returncode      string `json:"returncode"`
-	Orderfee        string `json:"orderfee"`
-	Channelserialno string `json:"channelserialno"`
+	ReturnCode      string `json:"returncode"`
+	OrderFee        string `json:"orderfee"`
+	ChannelSerialNo string `json:"channelserialno"`
 	Status          string `json:"status"`
 }
 
@@ -53,7 +53,7 @@ type QueryResponse struct {
 	RespData       string   `json:"respdata"`
 	DealAmount     float64  `json:"deal_amount"`
 	OverAmount     float64  `json:"over_amount"`
-	SlbusiId       string   `json:"slbusiid"`
+	SLBusIId       string   `json:"slbusiid"`
 	ReturnMsg      string   `json:"returnmsg"`
 	PresetId       string   `json:"preset_id"`
 	OrderAmount    float64  `json:"order_amount"`
@@ -91,7 +91,7 @@ type PayResponse struct {
 	ReturnCode     string `json:"returncode"`
 	ReturnMsg      string `json:"returnmsg"`
 	ReturnType     string `json:"returntype"`
-	Slibusiid      string `json:"slibusiid"`
+	SLIBusIId      string `json:"slibusiid"`
 	ResponstreTime string `json:"responstretime"`
 	RespData       string `json:"respdata"`
 	Data           string `json:"data"`
@@ -110,6 +110,7 @@ func (p *Pay) UnifiedOrder() (res interface{}, err error) {
 	return
 }
 
+// NativePayRequest 扫码支付
 func (p *Pay) NativePayRequest() (res PayResponse, err error) {
 	// 接口地址
 	nativePayRequestUrl := fmt.Sprintf("%s%s", ServiceUrl, "sltf-outside/inter/nativePayRequest")
